@@ -1,0 +1,28 @@
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore Virtual Environment
+venv/
+
+# Ignore Environment Variables (Secrets)
+.env
+
+# Ignore Logs & Temporary Files
+*.log
+*.sqlite3
+
+# Ignore Alembic Migration Cache (But Keep Migration Versions)
+migrations/versions/__pycache__/
+
+# Ignore Editor/IDE Specific Files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Ignore Python Dependency Lock Files
+Pipfile
+Pipfile.lock
