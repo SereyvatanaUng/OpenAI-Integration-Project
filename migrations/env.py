@@ -6,6 +6,7 @@ from alembic import context
 
 from app.models.user import User
 from app.models.chat_message import ChatMessage
+from app.models.token_blacklist import TokenBlacklist
 from app.database import Base  # Import your SQLAlchemy Base
 
 # Load environment variables
