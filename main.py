@@ -1,17 +1,23 @@
-from fastapi import FastAPI, HTTPException
+from sqlalchemy.orm import Session
+from fastapi import FastAPI, HTTPException, Header
+from fastapi.params import Depends
 from app.routes.auth_routes import api_router as auth_router
-from app.database import engine, Base
+from app.database import engine, Base, get_db
 
-from app.models import User, ChatMessage 
+from app.models import User, ChatMessage, TokenBlacklist 
 import os
 import httpx
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
+from app.services.auth_service import AuthService
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 app.include_router(auth_router)
+
+auth_service = AuthService()
 
 # Load API key from .env file
 load_dotenv()
@@ -24,6 +30,20 @@ class ChatRequest(BaseModel):
 @app.get("/")
 def home():
     return {"message": "ChatGPT API with Authentication is running!"}
+
+@app.get("/protected")
+async def protected_route(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing token")
+
+    token = authorization.split("Bearer ")[1]
+    user_data = await auth_service.validate_token(token, db)
+
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    return {"message": "You have accessed a protected route", "user": user_data}
+
 
 @app.post("/api/chat")
 async def chat_with_gpt(chat_request: ChatRequest):
