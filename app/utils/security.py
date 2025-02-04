@@ -1,6 +1,6 @@
 import os
 import bcrypt
-from jose import jwt, JWTError
+from jose import ExpiredSignatureError, jwt, JWTError
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
@@ -37,8 +37,10 @@ def decode_access_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
+    except ExpiredSignatureError:
+        return {"error": "Token has expired"}
     except JWTError:
-        return None
+        return {"error": "Invalid token"}
 
 def decode_refresh_token(token: str):
     try:
