@@ -1,25 +1,22 @@
 from sqlalchemy.orm import Session
 from app.models.chat_message import ChatMessage
 
-class ChatMessageRepository :
-    # Get all chat messages for a user
-    async def get_all_chat_messages(self, db: Session, user_id: int):
+class ChatMessageRepository:
+    def get_all_chat_messages(self, db: Session, user_email: str):
+        """Retrieve all chat messages for a user, ordered by creation time."""
         return (
             db.query(ChatMessage)
-            .filter(ChatMessage.user_id == user_id)
+            .filter(ChatMessage.user_email == user_email)
             .order_by(ChatMessage.created_at)
             .all()
         )
 
-    # Add a new chat message (Setter)
-    async def add_message(self, db: Session, user_id: int, role: str, content: str):
-        new_message = ChatMessage(user_id=user_id, role=role, content=content)
+    def add_message(self, db: Session, user_email: str, role: str, content: str):
+        """Create a new chat message (commit should be handled outside)."""
+        new_message = ChatMessage(user_email=user_email, role=role, content=content)
         db.add(new_message)
-        db.commit()
-        db.refresh(new_message)
-        return new_message
+        return new_message  # Commit in service layer
 
-    # Clear all chat messages for a user
-    async def clear_chat(self, db: Session, user_id: int):
-        db.query(ChatMessage).filter(ChatMessage.user_id == user_id).delete()
-        db.commit()
+    def clear_chat(self, db: Session, user_email: str):
+        """Delete all messages for a user safely."""
+        db.query(ChatMessage).filter(ChatMessage.user_email == user_email).delete(synchronize_session='fetch')

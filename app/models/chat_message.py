@@ -6,7 +6,7 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_email = Column(String(100), ForeignKey("users.email"), nullable=False)
     role = Column(String(10))  # "user" or "assistant"
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=func.now())

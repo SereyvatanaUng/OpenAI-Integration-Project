@@ -1,45 +1,74 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.services.chat_gpt_service import ChatGPTService
+from app.services.chat_message_service import ChatMessageService
 from app.repositories.chat_message_repository import ChatMessageRepository
-from app.services.auth_service import AuthService
-from app.models.chat_message import ChatMessage
 
-router = APIRouter()
-
-# Initialize ChatMessageRepository and AuthService
-chat_message_repo = ChatMessageRepository()
-auth_service = AuthService()
-
-@router.get("/messages")
-async def get_chat_messages(user_id: int, db: Session = Depends(get_db)):
-    # Validate if the user is authenticated (middleware should have handled this before this point)
-    user_data = await auth_service.validate_token(user_id, db)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+class ChatMessageRequest(BaseModel):
+    role : str
+    content : str
     
-    # Get all chat messages for the user
-    messages = await chat_message_repo.get_all_chat_messages(db, user_id)
-    return {"messages": messages}
 
-@router.post("/messages")
-async def add_chat_message(user_id: int, role: str, content: str, db: Session = Depends(get_db)):
-    # Validate if the user is authenticated
-    user_data = await auth_service.validate_token(user_id, db)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+class ChatMessageController:
+    def __init__(self):
+        self.router = APIRouter()
+        self.chat_service = ChatMessageService(ChatMessageRepository())
+        self.chatgpt_service = ChatGPTService()  # Initialize ChatGPTService
 
-    # Add new chat message
-    new_message = await chat_message_repo.add_message(db, user_id, role, content)
-    return {"message": "Chat message added", "data": new_message}
+        self.setup_routes()
 
-@router.delete("/messages")
-async def clear_chat(user_id: int, db: Session = Depends(get_db)):
-    # Validate if the user is authenticated
-    user_data = await auth_service.validate_token(user_id, db)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    def setup_routes(self):
+        self.router.get("/messages")(self.get_chat_messages)
+        self.router.post("/messages")(self.add_chat_message)
+        self.router.post("/messages/clear")(self.clear_chat)
+        self.router.post("/messages/generate")(self.generate_chat_response)  # New endpoint for AI response
 
-    # Clear all chat messages for the user
-    await chat_message_repo.clear_chat(db, user_id)
-    return {"message": "All chat messages cleared"}
+
+    async def get_chat_messages(self, request: Request, db: Session = Depends(get_db)):
+        user = request.state.user  # Get user from middleware
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        messages = self.chat_service.chat_repo.get_all_chat_messages(db, user.get('email'))
+        return {"messages": messages}
+
+    async def add_chat_message(self, request: Request, body: ChatMessageRequest = Request, db: Session = Depends(get_db)):
+        user = request.state.user  # Get user from middleware
+
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        new_message = self.chat_service.add_message(db, user.get('email'), body.role, body.content)
+        return {"message": "Chat message added", "data": new_message}
+
+    async def clear_chat(self, request: Request, db: Session = Depends(get_db)):
+        user = request.state.user  # Get user from middleware
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        self.chat_service.clear_chat(db, user.get('email'))
+        return {"message": "All chat messages cleared"}
+    
+    async def generate_chat_response(self, request: Request, body: ChatMessageRequest, db: Session = Depends(get_db)):
+        """Sends user message to OpenAI and stores the response in chat history."""
+        user = request.state.user
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        # Get AI response from OpenAI
+        ai_response = await self.chatgpt_service.chat_with_gpt(body.content)
+
+        # Extract AI message
+        ai_message = ai_response.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+        if not ai_message:
+            raise HTTPException(status_code=500, detail="Failed to get response from AI")
+
+        # Store user message
+        self.chat_service.add_message(db, user.get('email'), "user", body.content)
+
+        # Store AI response
+        self.chat_service.add_message(db, user.get('email'), "assistant", ai_message)
+
+        return {"message": "Chat response generated", "data": ai_message}
