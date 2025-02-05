@@ -11,11 +11,11 @@ class ChatMessageRepository:
             .all()
         )
 
-    def add_message(self, db: Session, user_email: str, role: str, content: str):
-        """Create a new chat message (commit should be handled outside)."""
-        new_message = ChatMessage(user_email=user_email, role=role, content=content)
+    def add_message(self, db: Session, user_id: int, role: str, content: str):
+        new_message = ChatMessage(user_id=user_id, role=role, content=content)
         db.add(new_message)
-        return new_message  # Commit in service layer
+        return new_message
+
 
     def clear_chat(self, db: Session, user_email: str):
         """Delete all messages for a user safely."""

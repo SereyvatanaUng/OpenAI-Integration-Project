@@ -1,5 +1,8 @@
 from app.repositories.user_repository import UserRepository
-from app.utils.security import decode_access_token, hash_password, verify_password, create_access_token, create_refresh_token, decode_refresh_token
+from app.utils.security import (
+    decode_access_token, hash_password, verify_password,
+    create_access_token, create_refresh_token, decode_refresh_token
+)
 from sqlalchemy.orm import Session
 
 class AuthService:
@@ -22,8 +25,9 @@ class AuthService:
         if not user or not verify_password(password, user.password_hash):
             return None
             
-        access_token = create_access_token({"sub": user.email})
-        refresh_token = create_refresh_token({"sub": user.email})
+        access_token = create_access_token({"id": user.id, "email": user.email})
+        refresh_token = create_refresh_token({"id": user.id, "email": user.email})
+
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -35,18 +39,19 @@ class AuthService:
         if not payload:
             return None
 
-        new_access_token = create_access_token({"sub": payload["sub"]})
+        new_access_token = create_access_token({"id": payload["id"], "email": payload["email"]})
+
         return {"access_token": new_access_token, "token_type": "bearer"}
 
     async def validate_token(self, token: str, db: Session):
-        # Decode token
         payload = decode_access_token(token)
         if not payload:
-            return None  # Token is invalid
+            return None
 
-        # Extract email from token
-        email = payload.get("sub")
-        if not email:
-            return None  # Token missing "sub" field
+        user_id = payload.get("id")
+        email = payload.get("email")
 
-        return {"email": email}  # Return user data (modify as needed)
+        if not user_id or not email:
+            return None
+        
+        return {"id": user_id, "email": email}

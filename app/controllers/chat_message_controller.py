@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services.chat_gpt_service import ChatGPTService
 from app.services.chat_message_service import ChatMessageService
 from app.repositories.chat_message_repository import ChatMessageRepository
+from app.models.chat_message import RoleEnum  
 
 class ChatMessageRequest(BaseModel):
     role : str
@@ -27,6 +28,7 @@ class ChatMessageController:
 
     async def get_chat_messages(self, request: Request, db: Session = Depends(get_db)):
         user = request.state.user  # Get user from middleware
+
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -38,7 +40,7 @@ class ChatMessageController:
 
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized")
-        new_message = self.chat_service.add_message(db, user.get('email'), body.role, body.content)
+        new_message = self.chat_service.add_message(db, user.get('id'), body.role, body.content)
         return {"message": "Chat message added", "data": new_message}
 
     async def clear_chat(self, request: Request, db: Session = Depends(get_db)):
@@ -59,15 +61,15 @@ class ChatMessageController:
         ai_response = await self.chatgpt_service.chat_with_gpt(body.content)
 
         # Extract AI message
-        ai_message = ai_response.get("choices", [{}])[0].get("message", {}).get("content", "")
+        ai_message = ai_response.get("choices", [{}])[0].get("message", {})
 
+        print("hello")
+        print(ai_message)
         if not ai_message:
             raise HTTPException(status_code=500, detail="Failed to get response from AI")
 
-        # Store user message
-        self.chat_service.add_message(db, user.get('email'), "user", body.content)
+        # ✅ Use Enum values instead of raw strings
+        self.chat_service.add_message(db, user.get('id'), RoleEnum.USER.value, body.content)
+        self.chat_service.add_message(db, user.get('id'), RoleEnum.ASSISTANT.value, ai_message.get("content", ""))
 
-        # Store AI response
-        self.chat_service.add_message(db, user.get('email'), "assistant", ai_message)
-
-        return {"message": "Chat response generated", "data": ai_message}
+        return {"status": "success", "statusCode": status.HTTP_201_CREATED,  "data": ai_message}
