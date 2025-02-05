@@ -21,9 +21,8 @@ class ChatMessageController:
 
     def setup_routes(self):
         self.router.get("/messages")(self.get_chat_messages)
-        self.router.post("/messages")(self.add_chat_message)
+        self.router.post("/messages")(self.generate_chat_response)
         self.router.post("/messages/clear")(self.clear_chat)
-        self.router.post("/messages/generate")(self.generate_chat_response)  # New endpoint for AI response
 
 
     async def get_chat_messages(self, request: Request, db: Session = Depends(get_db)):
