@@ -19,24 +19,24 @@ class ChatGPTService:
             "Authorization": f"Bearer {OPENAI_API_KEY}",
             "Content-Type": "application/json"
         }
-        self.chat_repo = ChatMessageRepository()  # ✅ Add repository instance
+        self.chat_repo = ChatMessageRepository()
 
     async def chat_with_gpt(self, db: Session, user_id: int, user_message: str):
         """ Retrieves chat history, sends a message to ChatGPT, and returns response. """
         print(user_id)
-        # ✅ Get latest chat history
+        # Get latest chat history
         latest_chat = self.chat_repo.get_latest_chat(db, user_id, limit=10)
 
-        # ✅ Convert chat history into OpenAI format
+        # Convert chat history into OpenAI format
         messages = [{"role": chat.role, "content": chat.content} for chat in latest_chat]
 
-        # ✅ Add the current user message
+        # Add the current user message
         messages.append({"role": "user", "content": user_message})
-        
-        # ✅ Prepare payload
+
+        # Prepare payload
         payload = {
             "model": self.model,
-            "messages": messages  # ✅ Include chat history
+            "messages": messages  # Include chat history
         }
 
         async with httpx.AsyncClient(timeout=20.0) as client:

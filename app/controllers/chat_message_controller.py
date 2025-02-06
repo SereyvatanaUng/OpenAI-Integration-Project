@@ -16,7 +16,7 @@ class ChatMessageController:
     def __init__(self):
         self.router = APIRouter()
         self.chat_service = ChatMessageService(ChatMessageRepository())
-        self.chatgpt_service = ChatGPTService()  # Initialize ChatGPTService
+        self.chatgpt_service = ChatGPTService()
 
         self.setup_routes()
 
@@ -36,7 +36,7 @@ class ChatMessageController:
         return {"messages": messages}
 
     async def add_chat_message(self, request: Request, body: ChatMessageRequest = Request, db: Session = Depends(get_db)):
-        user = request.state.user  # Get user from middleware
+        user = request.state.user
 
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized")
@@ -44,7 +44,7 @@ class ChatMessageController:
         return {"message": "Chat message added", "data": new_message}
 
     async def clear_chat(self, request: Request, db: Session = Depends(get_db)):
-        user = request.state.user  # Get user from middleware
+        user = request.state.user
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -66,7 +66,7 @@ class ChatMessageController:
         if not ai_message:
             raise HTTPException(status_code=500, detail="Failed to get response from AI")
 
-        # ✅ Use Enum values instead of raw strings
+        # Use Enum values instead of raw strings
         self.chat_service.add_message(db, user.get('id'), RoleEnum.USER.value, body.content)
         self.chat_service.add_message(db, user.get('id'), RoleEnum.ASSISTANT.value, ai_message.get("content", ""))
 
