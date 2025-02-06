@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -32,7 +32,7 @@ class ChatMessageController:
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-        messages = self.chat_service.chat_repo.get_all_chat_messages(db, user.get('email'))
+        messages = self.chat_service.chat_repo.get_all_chat_messages(db, user.get('id'))
         return {"messages": messages}
 
     async def add_chat_message(self, request: Request, body: ChatMessageRequest = Request, db: Session = Depends(get_db)):
@@ -48,7 +48,7 @@ class ChatMessageController:
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-        self.chat_service.clear_chat(db, user.get('email'))
+        self.chat_service.clear_chat(db, user.get('id'))
         return {"message": "All chat messages cleared"}
     
     async def generate_chat_response(self, request: Request, body: ChatMessageRequest, db: Session = Depends(get_db)):
@@ -58,13 +58,11 @@ class ChatMessageController:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
         # Get AI response from OpenAI
-        ai_response = await self.chatgpt_service.chat_with_gpt(body.content)
+        ai_response = await self.chatgpt_service.chat_with_gpt(db, user.get('id'), body.content)
 
         # Extract AI message
         ai_message = ai_response.get("choices", [{}])[0].get("message", {})
 
-        print("hello")
-        print(ai_message)
         if not ai_message:
             raise HTTPException(status_code=500, detail="Failed to get response from AI")
 
@@ -72,4 +70,4 @@ class ChatMessageController:
         self.chat_service.add_message(db, user.get('id'), RoleEnum.USER.value, body.content)
         self.chat_service.add_message(db, user.get('id'), RoleEnum.ASSISTANT.value, ai_message.get("content", ""))
 
-        return {"status": "success", "statusCode": status.HTTP_201_CREATED,  "data": ai_message}
+        return {"status": "success",  "data": ai_message}

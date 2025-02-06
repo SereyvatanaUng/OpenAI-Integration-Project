@@ -2,11 +2,13 @@ from dotenv import load_dotenv
 import httpx
 from fastapi import HTTPException
 import os
-
+from sqlalchemy.orm import Session
+from app.repositories.chat_message_repository import ChatMessageRepository
 
 # Load API key from .env file
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 class ChatGPTService:
     """ Service to interact with OpenAI's ChatGPT API. """
     BASE_URL = "https://api.openai.com/v1/chat/completions"
@@ -17,12 +19,24 @@ class ChatGPTService:
             "Authorization": f"Bearer {OPENAI_API_KEY}",
             "Content-Type": "application/json"
         }
+        self.chat_repo = ChatMessageRepository()  # ✅ Add repository instance
 
-    async def chat_with_gpt(self, user_message: str):
-        """ Sends a message to OpenAI's ChatGPT and returns the response. """
+    async def chat_with_gpt(self, db: Session, user_id: int, user_message: str):
+        """ Retrieves chat history, sends a message to ChatGPT, and returns response. """
+        print(user_id)
+        # ✅ Get latest chat history
+        latest_chat = self.chat_repo.get_latest_chat(db, user_id, limit=10)
+
+        # ✅ Convert chat history into OpenAI format
+        messages = [{"role": chat.role, "content": chat.content} for chat in latest_chat]
+
+        # ✅ Add the current user message
+        messages.append({"role": "user", "content": user_message})
+        
+        # ✅ Prepare payload
         payload = {
             "model": self.model,
-            "messages": [{"role": "user", "content": user_message}]
+            "messages": messages  # ✅ Include chat history
         }
 
         async with httpx.AsyncClient(timeout=20.0) as client:

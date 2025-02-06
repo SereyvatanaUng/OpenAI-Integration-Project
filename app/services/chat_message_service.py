@@ -12,7 +12,7 @@ class ChatMessageService:
         db.refresh(message)
         return message
 
-    def clear_chat(self, db: Session, user_email: str):
+    def clear_chat(self, db: Session, uesr_id: int):
         """Clear user chat messages and commit transaction."""
-        self.chat_repo.clear_chat(db, user_email)
+        self.chat_repo.clear_chat(db, uesr_id)
         db.commit()
