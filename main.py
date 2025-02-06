@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.params import Depends
+from app.middleware.auth_middleware import AuthMiddleware
 from app.routes.auth_routes import api_router as auth_router
+from app.routes.chat_massage_routes import api_router as chat_router
 from app.database import engine, Base, get_db
 
 from app.models import User, ChatMessage, TokenBlacklist 
@@ -16,6 +18,8 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 app.include_router(auth_router)
+app.include_router(chat_router)
+app.add_middleware(AuthMiddleware)
 
 auth_service = AuthService()
 
